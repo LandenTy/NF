@@ -3,595 +3,680 @@
 <html lang="en">
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-  <title>PS3 Controller Visualizer</title>
+  <title>Dungeon Descent</title>
   <style type="text/css">
+
     body {
-      background-color: #0d0d0d;
-      color: #cccccc;
+      background-color: #f0ece0;
+      margin: 0; padding: 0;
       font-family: "Courier New", Courier, monospace;
-      margin: 0;
-      padding: 0;
+      color: #2a2010;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Cpath d='M 16 0 L 0 0 0 16' fill='none' stroke='%23b8cce0' stroke-width='0.4'/%3E%3C/svg%3E");
+      background-size: 16px 16px;
     }
 
-    #wrapper {
-      width: 660px;
-      margin: 20px auto;
-      padding: 10px;
+    #page { width: 640px; margin: 16px auto; }
+    #title-block { text-align: center; margin-bottom: 10px; }
+    #game-title {
+      font-size: 2em; font-weight: bold; letter-spacing: 6px;
+      color: #2a1a08; text-transform: uppercase;
+      border-bottom: 3px solid #2a1a08; display: inline-block; padding-bottom: 2px;
+    }
+    #subtitle { font-size: 0.72em; color: #7a6040; letter-spacing: 3px; margin-top: 4px; }
+
+    #hud {
+      display: block; background-color: #e8e0cc;
+      border: 2px solid #2a1a08; border-bottom: none;
+      padding: 5px 14px; font-size: 0.78em; letter-spacing: 1px; color: #2a1a08;
+    }
+    #hud-left  { display: inline; }
+    #hud-right { display: inline; float: right; }
+    #hud-clear { clear: both; display: block; height: 0; }
+
+    #arena {
+      position: relative; width: 640px; height: 480px;
+      background-color: #ede8d8; border: 3px solid #2a1a08;
+      overflow: hidden; cursor: none;
     }
 
-    h1 {
-      color: #aaaaaa;
-      font-size: 1.1em;
-      text-align: center;
-      letter-spacing: 4px;
-      text-transform: uppercase;
-      margin-bottom: 4px;
+    .tile { position: absolute; width: 32px; height: 32px; }
+    .tile-wall {
+      background-color: #c8bfa0;
+      border-top: 1px solid #b0a070; border-left: 1px solid #b0a070;
+      border-right: 2px solid #8a7848; border-bottom: 2px solid #8a7848;
+    }
+    .hatch { position: absolute; width: 100%; height: 100%; top: 0; left: 0; overflow: hidden; }
+    .hatch-line { position: absolute; width: 200%; height: 1px; background-color: #a8996a; }
+    .tile-floor { background-color: #f2ecd8; border: 1px solid #ddd5b8; }
+
+    .tile-exit { background-color: #d8f0d0; border: 2px solid #3a7a30; }
+    .tile-exit-locked { background-color: #f2ecd8; border: 2px solid #cc4444; }
+    .exit-mark {
+      position: absolute; top: 6px; left: 6px; width: 18px; height: 18px;
+      border: 2px solid #3a7a30; font-size: 0.7em; line-height: 18px;
+      text-align: center; color: #3a7a30; font-weight: bold;
+    }
+    .exit-locked-mark {
+      position: absolute; top: 6px; left: 6px; width: 18px; height: 18px;
+      border: 2px solid #cc4444; font-size: 0.7em; line-height: 18px;
+      text-align: center; color: #cc4444; font-weight: bold;
     }
 
-    #subtitle {
-      text-align: center;
-      color: #444444;
-      font-size: 0.75em;
-      letter-spacing: 2px;
-      margin-bottom: 20px;
+    #player {
+      position: absolute; width: 22px; height: 22px;
+      background-color: #2255cc; border: 2px solid #112288; z-index: 10;
+    }
+    #player-pip {
+      position: absolute; width: 6px; height: 6px;
+      background-color: #ffffff; border: 1px solid #112288;
     }
 
-    /* ── Controller shell ── */
-    #controller {
-      background-color: #1a1a1a;
-      border: 2px solid #333333;
-      padding: 20px 10px 16px 10px;
-      position: relative;
+    /* Sword: shown during swing */
+    #sword { position: absolute; z-index: 11; display: none; }
+    #sword-blade { position: absolute; background-color: #d4d090; border: 1px solid #888840; }
+    #sword-guard { position: absolute; background-color: #8a5520; border: 1px solid #5a3010; }
+    #sword-handle { position: absolute; background-color: #6a3a10; border: 1px solid #3a1a00; }
+
+    /* Brief flash box showing swing area */
+    #swing-flash {
+      position: absolute; z-index: 8; display: none;
+      border: 1px solid #c8c090; background-color: transparent;
     }
 
-    /* ── Row layout helpers ── */
-    .ctrl-row {
-      display: block;
-      text-align: center;
-      line-height: 1.0;
-      margin: 0;
-      padding: 0;
+    .enemy {
+      position: absolute; width: 22px; height: 22px;
+      background-color: #cc2222; border: 2px solid #881111; z-index: 9;
+    }
+    .enemy-brow { position: absolute; top: 3px; left: 2px; width: 16px; height: 2px; background-color: #661111; }
+    .enemy-eye-l { position: absolute; top: 6px; left: 2px; width: 5px; height: 5px; background-color: #ffdddd; border: 1px solid #881111; }
+    .enemy-eye-r { position: absolute; top: 6px; left: 13px; width: 5px; height: 5px; background-color: #ffdddd; border: 1px solid #881111; }
+    .enemy-mouth { position: absolute; top: 14px; left: 4px; width: 12px; height: 3px; background-color: #661111; }
+    .enemy-hit { background-color: #ffeeaa; border-color: #aa8800; }
+
+    .puff {
+      position: absolute; z-index: 15;
+      font-size: 0.75em; color: #882200; font-weight: bold;
+      font-family: "Courier New", Courier, monospace; letter-spacing: 0;
     }
 
-    /* ── Generic button cell ── */
-    .btn {
-      display: inline-block;
-      width: 28px;
-      height: 28px;
-      line-height: 28px;
-      text-align: center;
-      font-size: 0.85em;
-      font-weight: bold;
-      background-color: #222222;
-      border: 1px solid #444444;
-      color: #666666;
-      cursor: pointer;
-      vertical-align: middle;
+    #overlay {
+      position: absolute; top: 0; left: 0; width: 640px; height: 480px;
+      background-color: #ede8d8; z-index: 50; text-align: center;
+    }
+    #overlay-title {
+      font-size: 1.8em; font-weight: bold; letter-spacing: 4px; color: #2a1a08;
+      border-bottom: 2px solid #2a1a08; display: inline-block;
+      margin-top: 90px; padding-bottom: 4px;
+    }
+    #overlay-body {
+      font-size: 0.82em; color: #5a4020; margin-top: 14px;
+      line-height: 2.0; letter-spacing: 1px;
+    }
+    #overlay-btn {
+      display: inline-block; margin-top: 20px; padding: 10px 32px;
+      background-color: #2a1a08; color: #f0ece0;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 0.9em; letter-spacing: 3px; border: 2px solid #2a1a08; cursor: pointer;
+    }
+    #overlay-btn:hover { background-color: #5a3a18; }
+
+    #status {
+      background-color: #e8e0cc; border: 2px solid #2a1a08; border-top: none;
+      padding: 5px 14px; font-size: 0.72em; color: #5a4020; letter-spacing: 1px; min-height: 16px;
     }
 
-    .btn:hover {
-      border-color: #888888;
-      color: #aaaaaa;
-    }
+    #room-label { position: absolute; top: 6px; right: 10px; font-size: 0.65em; color: #9a8860; letter-spacing: 2px; z-index: 5; }
+    #kill-badge { position: absolute; top: 6px; left: 10px; font-size: 0.65em; letter-spacing: 1px; z-index: 5; font-family: "Courier New", Courier, monospace; }
 
-    /* ── Spacer ── */
-    .sp {
-      display: inline-block;
-      vertical-align: middle;
-    }
+    #joy-ring { position: absolute; width: 80px; height: 80px; border: 2px solid #2a1a08; background-color: transparent; z-index: 20; }
+    #joy-h { position: absolute; top: 38px; left: 0; width: 80px; height: 2px; background-color: #c8bfa0; }
+    #joy-v { position: absolute; top: 0; left: 38px; width: 2px; height: 80px; background-color: #c8bfa0; }
+    #joy-thumb { position: absolute; width: 14px; height: 14px; background-color: #2a1a08; border: 1px solid #2a1a08; z-index: 22; }
 
-    /* ── Active (pressed) state colours ── */
-    .active-x   { background-color: #1a3a6e; border-color: #4488ff; color: #ffffff; }
-    .active-o   { background-color: #6e1a1a; border-color: #ff4444; color: #ffffff; }
-    .active-sq  { background-color: #4e1a6e; border-color: #cc44ff; color: #ffffff; }
-    .active-tr  { background-color: #1a4e2e; border-color: #44ff88; color: #ffffff; }
-    .active-d   { background-color: #2a2a2a; border-color: #aaaaaa; color: #ffffff; }
-    .active-sh  { background-color: #3a3a1a; border-color: #ffee44; color: #ffffff; }
-    .active-st  { background-color: #1a3a3a; border-color: #44ffee; color: #ffffff; }
-    .active-ps  { background-color: #3a2a1a; border-color: #ffaa44; color: #ffffff; }
-    .active-l   { background-color: #1a2a3a; border-color: #44aaff; color: #ffffff; }
-    .active-r   { background-color: #1a2a3a; border-color: #44aaff; color: #ffffff; }
-
-    /* ── Shoulder / trigger strip ── */
-    .shoulder {
-      display: inline-block;
-      width: 70px;
-      height: 20px;
-      line-height: 20px;
-      text-align: center;
-      font-size: 0.75em;
-      font-weight: bold;
-      background-color: #1e1e1e;
-      border: 1px solid #3a3a3a;
-      color: #555555;
-      vertical-align: middle;
-      cursor: pointer;
-    }
-
-    .shoulder:hover { border-color: #888888; color: #aaaaaa; }
-
-    /* ── Analog stick zone ── */
-    .stick-zone {
-      display: inline-block;
-      width: 80px;
-      height: 80px;
-      background-color: #111111;
-      border: 1px solid #333333;
-      position: relative;
-      vertical-align: middle;
-      overflow: hidden;
-    }
-
-    .stick-dot {
-      position: absolute;
-      width: 14px;
-      height: 14px;
-      background-color: #333333;
-      border: 1px solid #555555;
-      /* centered by default */
-      top: 33px;
-      left: 33px;
-    }
-
-    .stick-label {
-      position: absolute;
-      bottom: 2px;
-      right: 4px;
-      font-size: 0.6em;
-      color: #333333;
-    }
-
-    .stick-cross-h {
-      position: absolute;
-      top: 50%;
-      left: 0;
-      width: 100%;
-      height: 1px;
-      background-color: #222222;
-    }
-
-    .stick-cross-v {
-      position: absolute;
-      left: 50%;
-      top: 0;
-      width: 1px;
-      height: 100%;
-      background-color: #222222;
-    }
-
-    .stick-zone-active .stick-dot {
-      background-color: #1a3a6e;
-      border-color: #4488ff;
-    }
-
-    /* ── D-pad ── */
-    .dpad-mid {
-      display: inline-block;
-      vertical-align: middle;
-    }
-
-    /* ── Status bar ── */
-    #statusbar {
-      background-color: #111111;
-      border: 1px solid #2a2a2a;
-      padding: 8px 12px;
-      margin-top: 14px;
-      font-size: 0.75em;
-      color: #555555;
-      min-height: 18px;
-    }
-
-    #statusbar span {
-      color: #88ccff;
-    }
-
-    /* ── Log ── */
-    #log {
-      background-color: #080808;
-      border: 1px solid #1e1e1e;
-      padding: 8px 12px;
-      margin-top: 8px;
-      font-size: 0.7em;
-      color: #336633;
-      height: 80px;
-      overflow: hidden;
-    }
-
-    #log p {
-      margin: 1px 0;
-      padding: 0;
-    }
-
-    #log .log-new {
-      color: #55ff55;
-    }
-
-    /* ── Mouse tracker ── */
-    #mousetracker {
-      background-color: #0a0a14;
-      border: 1px solid #1a1a2e;
-      padding: 8px 12px;
-      margin-top: 8px;
-      font-size: 0.72em;
-      color: #334466;
-    }
-
-    #mousetracker span { color: #4488cc; }
-
-    #hint {
-      text-align: center;
-      color: #333333;
-      font-size: 0.68em;
-      margin-top: 10px;
-      letter-spacing: 1px;
-    }
   </style>
 </head>
 <body>
 
-<div id="wrapper">
+<div id="page">
+  <div id="title-block">
+    <div id="game-title">Dungeon Descent</div>
+    <div id="subtitle">slay all enemies &mdash; then find the exit</div>
+  </div>
 
-  <h1>&#9679; Controller Visualizer</h1>
-  <div id="subtitle">PS3 NetFront Edition &mdash; press buttons or move cursor</div>
+  <div id="hud">
+    <span id="hud-left">HP: <span id="hud-hp">3</span>/3 &nbsp;&nbsp; Floor: <span id="hud-floor">1</span> &nbsp;&nbsp; Room: <span id="hud-room">1</span></span>
+    <span id="hud-right">Score: <span id="hud-score">0</span></span>
+    <span id="hud-clear"></span>
+  </div>
 
-  <div id="controller">
-
-    <!-- ═══ SHOULDER / TRIGGER ROW ═══ -->
-    <div class="ctrl-row" style="margin-bottom:4px;">
-      <div class="shoulder" id="btn-l2" onclick="clickBtn('l2')">L2</div>
-      <div class="sp" style="width:14px;"></div>
-      <div class="shoulder" id="btn-l1" onclick="clickBtn('l1')">L1</div>
-      <div class="sp" style="width:154px;"></div>
-      <div class="shoulder" id="btn-r1" onclick="clickBtn('r1')">R1</div>
-      <div class="sp" style="width:14px;"></div>
-      <div class="shoulder" id="btn-r2" onclick="clickBtn('r2')">R2</div>
+  <div id="arena">
+    <div id="room-label">ROOM 1</div>
+    <div id="kill-badge"></div>
+    <div id="tiles"></div>
+    <div id="enemies-layer"></div>
+    <div id="swing-flash"></div>
+    <div id="sword"><div id="sword-blade"></div><div id="sword-guard"></div><div id="sword-handle"></div></div>
+    <div id="player"><div id="player-pip"></div></div>
+    <div id="joy-ring"><div id="joy-h"></div><div id="joy-v"></div></div>
+    <div id="joy-thumb"></div>
+    <div id="overlay">
+      <div id="overlay-title">DUNGEON DESCENT</div>
+      <div id="overlay-body">
+        <strong>Move:</strong> push mouse away from player (joystick)<br>
+        <strong>Attack:</strong> left-click &mdash; swings your wood sword<br>
+        <strong>PS3 attack:</strong> press Enter (Cross button)<br>
+        <strong>Re-centre stick:</strong> right-click or double-click<br><br>
+        Kill <em>all enemies</em> to unlock the <strong>[ E ]</strong> exit.<br>
+        3 rooms per floor &mdash; survive the descent.
+      </div>
+      <div id="overlay-btn" onclick="startGame()">ENTER THE DUNGEON</div>
     </div>
-
-    <!-- ═══ MAIN BODY ROW ═══ -->
-    <div class="ctrl-row" style="margin-top:8px;">
-
-      <!-- LEFT ANALOG -->
-      <div class="stick-zone" id="stick-left">
-        <div class="stick-cross-h"></div>
-        <div class="stick-cross-v"></div>
-        <div class="stick-dot" id="dot-left"></div>
-        <div class="stick-label">L</div>
-      </div>
-
-      <div class="sp" style="width:8px;"></div>
-
-      <!-- D-PAD -->
-      <div class="dpad-mid">
-        <div class="ctrl-row">
-          <div class="sp" style="width:30px;"></div>
-          <div class="btn" id="btn-dup" onclick="clickBtn('dup')">&#9650;</div>
-          <div class="sp" style="width:30px;"></div>
-        </div>
-        <div class="ctrl-row" style="margin:2px 0;">
-          <div class="btn" id="btn-dleft" onclick="clickBtn('dleft')">&#9668;</div>
-          <div class="sp" style="width:30px; height:28px; display:inline-block; background-color:#111111; vertical-align:middle;"></div>
-          <div class="btn" id="btn-dright" onclick="clickBtn('dright')">&#9658;</div>
-        </div>
-        <div class="ctrl-row">
-          <div class="sp" style="width:30px;"></div>
-          <div class="btn" id="btn-ddown" onclick="clickBtn('ddown')">&#9660;</div>
-          <div class="sp" style="width:30px;"></div>
-        </div>
-      </div>
-
-      <div class="sp" style="width:8px;"></div>
-
-      <!-- SELECT / PS / START -->
-      <div style="display:inline-block; vertical-align:middle; text-align:center;">
-        <div class="btn" id="btn-sel" style="width:44px; font-size:0.65em;" onclick="clickBtn('sel')">SEL</div>
-        <div style="height:6px;"></div>
-        <div class="btn" id="btn-ps" style="width:44px; font-size:0.75em; border-radius:0;" onclick="clickBtn('ps')">PS</div>
-        <div style="height:6px;"></div>
-        <div class="btn" id="btn-sta" style="width:44px; font-size:0.65em;" onclick="clickBtn('sta')">STA</div>
-      </div>
-
-      <div class="sp" style="width:8px;"></div>
-
-      <!-- FACE BUTTONS -->
-      <div style="display:inline-block; vertical-align:middle;">
-        <!-- Triangle -->
-        <div class="ctrl-row">
-          <div class="sp" style="width:30px;"></div>
-          <div class="btn" id="btn-tri" style="color:#44ff88;" onclick="clickBtn('tri')">&#9650;</div>
-          <div class="sp" style="width:30px;"></div>
-        </div>
-        <!-- Square / Circle -->
-        <div class="ctrl-row" style="margin:2px 0;">
-          <div class="btn" id="btn-sq" style="color:#cc44ff;" onclick="clickBtn('sq')">&#9632;</div>
-          <div class="sp" style="width:30px; height:28px; display:inline-block; background-color:#111111; vertical-align:middle;"></div>
-          <div class="btn" id="btn-ci" style="color:#ff4444;" onclick="clickBtn('ci')">&#9679;</div>
-        </div>
-        <!-- Cross -->
-        <div class="ctrl-row">
-          <div class="sp" style="width:30px;"></div>
-          <div class="btn" id="btn-x" style="color:#4488ff;" onclick="clickBtn('x')">X</div>
-          <div class="sp" style="width:30px;"></div>
-        </div>
-      </div>
-
-      <div class="sp" style="width:8px;"></div>
-
-      <!-- RIGHT ANALOG -->
-      <div class="stick-zone" id="stick-right">
-        <div class="stick-cross-h"></div>
-        <div class="stick-cross-v"></div>
-        <div class="stick-dot" id="dot-right"></div>
-        <div class="stick-label">R</div>
-      </div>
-
-    </div><!-- end main row -->
-
-    <!-- ═══ L3 / R3 LABELS ═══ -->
-    <div class="ctrl-row" style="margin-top:6px; font-size:0.65em; color:#333333; letter-spacing:2px;">
-      <div class="sp" style="width:26px;"></div>
-      <div style="display:inline-block; width:80px; text-align:center;">L3 (click)</div>
-      <div class="sp" style="width:330px;"></div>
-      <div style="display:inline-block; width:80px; text-align:center;">R3 (click)</div>
-    </div>
-
-  </div><!-- end #controller -->
-
-  <!-- STATUS BAR -->
-  <div id="statusbar">Waiting for input&hellip;</div>
-
-  <!-- MOUSE / STICK TRACKER -->
-  <div id="mousetracker">
-    Cursor (Left Stick proxy) &mdash;
-    X: <span id="mx">---</span> &nbsp;
-    Y: <span id="my">---</span> &nbsp;&nbsp;
-    Zone: <span id="mzone">---</span>
   </div>
 
-  <!-- EVENT LOG -->
-  <div id="log">
-    <p id="log0" class="log-new">&gt; Visualizer ready.</p>
-    <p id="log1">&gt;</p>
-    <p id="log2">&gt;</p>
-    <p id="log3">&gt;</p>
-    <p id="log4">&gt;</p>
-    <p id="log5">&gt;</p>
-    <p id="log6">&gt;</p>
-    <p id="log7">&gt;</p>
-  </div>
-
-  <div id="hint">
-    D-PAD = arrow keys &nbsp;|&nbsp; X = Enter &nbsp;|&nbsp; O = Backspace &nbsp;|&nbsp;
-    START = Esc &nbsp;|&nbsp; Move cursor = Left Stick proxy
-  </div>
-
-</div><!-- end #wrapper -->
+  <div id="status">Waiting&hellip;</div>
+</div>
 
 <script type="text/javascript">
+// ================================================================
+//  DUNGEON DESCENT  -  ES3 / PS3 NetFront
+//  Sword combat + kill-to-unlock + smooth chase AI
+// ================================================================
 
-  // ── Held-button tracking ──
-  var heldKeys = {};
+var TILE    = 32;
+var COLS    = 20;
+var ROWS    = 15;
+var MAX_SPD = 3;
+var JOY_R   = 36;
+var FPS     = 40;
 
-  // ── Log lines (newest first) ──
-  var logLines = [
-    "Visualizer ready.",
-    "", "", "", "", "", "", ""
-  ];
+var DIR_RIGHT = 0;
+var DIR_DOWN  = 1;
+var DIR_LEFT  = 2;
+var DIR_UP    = 3;
 
-  function pushLog(msg) {
-    logLines.unshift(msg);
-    if (logLines.length > 8) { logLines.length = 8; }
-    var i;
-    for (i = 0; i < 8; i++) {
-      var el = document.getElementById("log" + i);
-      if (el) {
-        el.innerHTML = "&gt; " + (logLines[i] ? logLines[i] : "");
-        if (i === 0) {
-          el.className = "log-new";
+var T_FLOOR = 0;
+var T_WALL  = 1;
+var T_EXIT  = 2;
+
+var SWING_DUR = 10;
+var SWING_CD  = 22;
+
+var state = {
+  running: false,
+  hp: 3, score: 0, floor: 1, room: 1, roomsLeft: 3,
+  invincible: 0,
+  playerX: 0, playerY: 0,
+  facing: DIR_RIGHT,
+  swinging: 0, swingCD: 0,
+  roomCleared: false,
+  rawMouseX: 0, rawMouseY: 0,
+  joyOriginX: 0, joyOriginY: 0,
+  arenaOX: 0, arenaOY: 0,
+  enemies: [], map: [],
+  exitTileX: 0, exitTileY: 0,
+  tick: 0, loopTimer: null
+};
+
+var arenaEl    = document.getElementById("arena");
+var tilesEl    = document.getElementById("tiles");
+var enemyLayer = document.getElementById("enemies-layer");
+var playerEl   = document.getElementById("player");
+var pipEl      = document.getElementById("player-pip");
+var swordEl    = document.getElementById("sword");
+var bladeEl    = document.getElementById("sword-blade");
+var guardEl    = document.getElementById("sword-guard");
+var handleEl   = document.getElementById("sword-handle");
+var flashEl    = document.getElementById("swing-flash");
+var joyRingEl  = document.getElementById("joy-ring");
+var joyThumbEl = document.getElementById("joy-thumb");
+var overlayEl  = document.getElementById("overlay");
+var statusEl   = document.getElementById("status");
+var killBadge  = document.getElementById("kill-badge");
+
+function gid(id){ return document.getElementById(id); }
+function clamp(v,lo,hi){ return v<lo?lo:v>hi?hi:v; }
+function rnd(n){ return Math.floor(Math.random()*n); }
+function setStatus(m){ statusEl.innerHTML=m; }
+
+function updateHUD(){
+  gid("hud-hp").innerHTML=state.hp;
+  gid("hud-floor").innerHTML=state.floor;
+  gid("hud-room").innerHTML=state.room;
+  gid("hud-score").innerHTML=state.score;
+  gid("room-label").innerHTML="ROOM "+state.room+" / FLOOR "+state.floor;
+}
+
+function updateKillBadge(){
+  var alive=0;
+  for(var i=0;i<state.enemies.length;i++){if(!state.enemies[i].dead){alive++;}}
+  if(state.roomCleared){
+    killBadge.innerHTML="ALL CLEAR &mdash; find the exit!";
+    killBadge.style.color="#3a7a30";
+  } else {
+    killBadge.innerHTML="Enemies: "+alive;
+    killBadge.style.color="#cc2222";
+  }
+}
+
+function getPageOffset(el){
+  var x=0,y=0,n=el;
+  while(n&&n.tagName){x+=n.offsetLeft||0;y+=n.offsetTop||0;n=n.offsetParent;}
+  return {x:x,y:y};
+}
+function refreshArenaOffset(){
+  var o=getPageOffset(arenaEl); state.arenaOX=o.x; state.arenaOY=o.y;
+}
+
+// ── Joystick ──
+function lockJoystick(){
+  state.joyOriginX=state.arenaOX+state.playerX+11;
+  state.joyOriginY=state.arenaOY+state.playerY+11;
+  state.rawMouseX=state.joyOriginX;
+  state.rawMouseY=state.joyOriginY;
+  renderJoystick(0,0);
+}
+
+function renderJoystick(sx,sy){
+  var cx=state.playerX+11, cy=state.playerY+11;
+  joyRingEl.style.left=(cx-40)+"px"; joyRingEl.style.top=(cy-40)+"px";
+  joyThumbEl.style.left=(cx+sx-7)+"px"; joyThumbEl.style.top=(cy+sy-7)+"px";
+}
+
+// ── Facing pip ──
+// pip is 6x6 inside 22x22 player, floats to the edge facing direction
+function updatePip(){
+  if(state.facing===DIR_RIGHT){ pipEl.style.left="14px"; pipEl.style.top="7px"; }
+  else if(state.facing===DIR_LEFT){ pipEl.style.left="1px"; pipEl.style.top="7px"; }
+  else if(state.facing===DIR_DOWN){ pipEl.style.left="7px"; pipEl.style.top="14px"; }
+  else { pipEl.style.left="7px"; pipEl.style.top="1px"; }
+}
+
+// ── Sword rendering ──
+// Sword is blade(20px) + guard(4px) + handle(8px) = 32px total
+// Laid out in the facing direction from player edge
+function renderSword(on){
+  if(!on){ swordEl.style.display="none"; flashEl.style.display="none"; return; }
+  swordEl.style.display="block";
+  var cx=state.playerX+11, cy=state.playerY+11;
+  var BLADE=20, GUARD=4, HANDLE=8, THICK=5;
+  var TOTAL=BLADE+GUARD+HANDLE;
+
+  if(state.facing===DIR_RIGHT){
+    swordEl.style.left=(cx+11)+"px"; swordEl.style.top=(cy-THICK/2)+"px";
+    swordEl.style.width=TOTAL+"px"; swordEl.style.height=THICK+"px";
+    bladeEl.style.left="0px";       bladeEl.style.top="0px"; bladeEl.style.width=BLADE+"px";  bladeEl.style.height=THICK+"px";
+    guardEl.style.left=BLADE+"px";  guardEl.style.top="0px"; guardEl.style.width=GUARD+"px";  guardEl.style.height=THICK+"px";
+    handleEl.style.left=(BLADE+GUARD)+"px"; handleEl.style.top="0px"; handleEl.style.width=HANDLE+"px"; handleEl.style.height=THICK+"px";
+  } else if(state.facing===DIR_LEFT){
+    swordEl.style.left=(cx-11-TOTAL)+"px"; swordEl.style.top=(cy-THICK/2)+"px";
+    swordEl.style.width=TOTAL+"px"; swordEl.style.height=THICK+"px";
+    bladeEl.style.left=(GUARD+HANDLE)+"px"; bladeEl.style.top="0px"; bladeEl.style.width=BLADE+"px"; bladeEl.style.height=THICK+"px";
+    guardEl.style.left=HANDLE+"px";         guardEl.style.top="0px"; guardEl.style.width=GUARD+"px"; guardEl.style.height=THICK+"px";
+    handleEl.style.left="0px";              handleEl.style.top="0px"; handleEl.style.width=HANDLE+"px"; handleEl.style.height=THICK+"px";
+  } else if(state.facing===DIR_DOWN){
+    swordEl.style.left=(cx-THICK/2)+"px"; swordEl.style.top=(cy+11)+"px";
+    swordEl.style.width=THICK+"px"; swordEl.style.height=TOTAL+"px";
+    bladeEl.style.left="0px"; bladeEl.style.top="0px";          bladeEl.style.width=THICK+"px"; bladeEl.style.height=BLADE+"px";
+    guardEl.style.left="0px"; guardEl.style.top=BLADE+"px";     guardEl.style.width=THICK+"px"; guardEl.style.height=GUARD+"px";
+    handleEl.style.left="0px"; handleEl.style.top=(BLADE+GUARD)+"px"; handleEl.style.width=THICK+"px"; handleEl.style.height=HANDLE+"px";
+  } else { // UP
+    swordEl.style.left=(cx-THICK/2)+"px"; swordEl.style.top=(cy-11-TOTAL)+"px";
+    swordEl.style.width=THICK+"px"; swordEl.style.height=TOTAL+"px";
+    bladeEl.style.left="0px"; bladeEl.style.top=(GUARD+HANDLE)+"px"; bladeEl.style.width=THICK+"px"; bladeEl.style.height=BLADE+"px";
+    guardEl.style.left="0px"; guardEl.style.top=HANDLE+"px";          guardEl.style.width=THICK+"px"; guardEl.style.height=GUARD+"px";
+    handleEl.style.left="0px"; handleEl.style.top="0px";              handleEl.style.width=THICK+"px"; handleEl.style.height=HANDLE+"px";
+  }
+
+  // Flash box (swing hitbox visual)
+  var hb=getSwingHitbox();
+  flashEl.style.display="block";
+  flashEl.style.left=hb.x+"px"; flashEl.style.top=hb.y+"px";
+  flashEl.style.width=hb.w+"px"; flashEl.style.height=hb.h+"px";
+}
+
+function getSwingHitbox(){
+  var cx=state.playerX+11, cy=state.playerY+11;
+  var W=38, H=22;
+  if(state.facing===DIR_RIGHT){ return {x:cx+10, y:cy-H/2, w:W, h:H}; }
+  if(state.facing===DIR_LEFT) { return {x:cx-10-W, y:cy-H/2, w:W, h:H}; }
+  if(state.facing===DIR_DOWN) { return {x:cx-H/2, y:cy+10, w:H, h:W}; }
+  /* UP */                       return {x:cx-H/2, y:cy-10-W, w:H, h:W};
+}
+
+// ── Death puff ──
+function spawnPuff(x,y){
+  var p=document.createElement("div");
+  p.className="puff"; p.innerHTML="* *";
+  p.style.left=x+"px"; p.style.top=y+"px";
+  arenaEl.appendChild(p);
+  var life=20;
+  var t=setInterval(function(){
+    life--;
+    p.style.top=(parseInt(p.style.top,10)-1)+"px";
+    if(life<=0){clearInterval(t);if(p.parentNode){p.parentNode.removeChild(p);}}
+  },FPS);
+}
+
+// ── Map ──
+function buildMap(){
+  var x,y,i;
+  state.map=[];
+  for(y=0;y<ROWS;y++){state.map[y]=[];for(x=0;x<COLS;x++){state.map[y][x]=T_WALL;}}
+  var rx1=1+rnd(2),ry1=1+rnd(2),rx2=COLS-2-rnd(2),ry2=ROWS-2-rnd(2);
+  for(y=ry1;y<=ry2;y++){for(x=rx1;x<=rx2;x++){state.map[y][x]=T_FLOOR;}}
+  var pillars=2+rnd(3);
+  for(i=0;i<pillars;i++){
+    var px=rx1+2+rnd(rx2-rx1-3), py=ry1+2+rnd(ry2-ry1-3);
+    state.map[py][px]=T_WALL;
+    if(rnd(2)&&px+1<rx2&&py+1<ry2){state.map[py][px+1]=T_WALL;state.map[py+1][px]=T_WALL;state.map[py+1][px+1]=T_WALL;}
+  }
+  var ex=rx2-1-rnd(2), ey=ry2-1-rnd(2);
+  state.map[ey][ex]=T_EXIT; state.exitTileX=ex; state.exitTileY=ey;
+  state.playerX=(rx1+1)*TILE+5; state.playerY=(ry1+1)*TILE+5;
+  return {rx1:rx1,ry1:ry1,rx2:rx2,ry2:ry2};
+}
+
+function renderMap(locked){
+  var x,y,i,tile,el;
+  tilesEl.innerHTML="";
+  for(y=0;y<ROWS;y++){
+    for(x=0;x<COLS;x++){
+      tile=state.map[y][x];
+      el=document.createElement("div");
+      el.style.position="absolute";
+      el.style.left=(x*TILE)+"px"; el.style.top=(y*TILE)+"px";
+      el.style.width=TILE+"px"; el.style.height=TILE+"px";
+      if(tile===T_WALL){
+        el.className="tile tile-wall";
+        var h=document.createElement("div"); h.className="hatch";
+        for(i=0;i<4;i++){var ln=document.createElement("div");ln.className="hatch-line";ln.style.top=(i*9-4)+"px";ln.style.left="-50%";h.appendChild(ln);}
+        el.appendChild(h);
+      } else if(tile===T_EXIT){
+        if(locked){
+          el.className="tile tile-exit-locked";
+          var lk=document.createElement("div"); lk.className="exit-locked-mark"; lk.id="exit-tile-mark"; lk.innerHTML="X";
+          el.appendChild(lk);
         } else {
-          el.className = "";
+          el.className="tile tile-exit";
+          var mk=document.createElement("div"); mk.className="exit-mark"; mk.id="exit-tile-mark"; mk.innerHTML="E";
+          el.appendChild(mk);
         }
+      } else {
+        el.className="tile tile-floor";
+      }
+      tilesEl.appendChild(el);
+    }
+  }
+}
+
+function unlockExit(){
+  var idx=state.exitTileY*COLS+state.exitTileX;
+  var kids=tilesEl.childNodes;
+  if(kids[idx]){
+    kids[idx].className="tile tile-exit";
+    var old=document.getElementById("exit-tile-mark");
+    if(old&&old.parentNode){old.parentNode.removeChild(old);}
+    var mk=document.createElement("div"); mk.className="exit-mark"; mk.id="exit-tile-mark"; mk.innerHTML="E";
+    kids[idx].appendChild(mk);
+  }
+}
+
+// ── Enemies ──
+function spawnEnemies(rx1,ry1,rx2,ry2){
+  var i; state.enemies=[]; enemyLayer.innerHTML="";
+  var count=3+state.floor+rnd(2); if(count>8){count=8;}
+  for(i=0;i<count;i++){
+    var tries=0, ex, ey;
+    do{
+      ex=(rx1+2+rnd(rx2-rx1-3))*TILE+5;
+      ey=(ry1+2+rnd(ry2-ry1-3))*TILE+5;
+      tries++;
+    }while(tries<40&&(Math.abs(ex-state.playerX)<100||Math.abs(ey-state.playerY)<100));
+
+    var el=document.createElement("div"); el.className="enemy";
+    el.style.left=ex+"px"; el.style.top=ey+"px";
+    // Hand-drawn angry face
+    var brow=document.createElement("div"); brow.className="enemy-brow";
+    var eyel=document.createElement("div"); eyel.className="enemy-eye-l";
+    var eyer=document.createElement("div"); eyer.className="enemy-eye-r";
+    var mouth=document.createElement("div"); mouth.className="enemy-mouth";
+    el.appendChild(brow); el.appendChild(eyel); el.appendChild(eyer); el.appendChild(mouth);
+    enemyLayer.appendChild(el);
+
+    state.enemies.push({x:ex,y:ey,fx:ex+0.0,fy:ey+0.0,el:el,dead:false,hitFlash:0});
+  }
+}
+
+// ── Collision ──
+function collidesWall(px,py){
+  var pts=[[px,py],[px+21,py],[px,py+21],[px+21,py+21],[px+11,py+11]];
+  for(var i=0;i<pts.length;i++){
+    var tx=Math.floor(pts[i][0]/TILE), ty=Math.floor(pts[i][1]/TILE);
+    if(tx<0||ty<0||tx>=COLS||ty>=ROWS){return true;}
+    if(state.map[ty][tx]===T_WALL){return true;}
+  }
+  return false;
+}
+function onExitTile(px,py){
+  var tx=Math.floor((px+11)/TILE), ty=Math.floor((py+11)/TILE);
+  return !!(state.map[ty]&&state.map[ty][tx]===T_EXIT);
+}
+function boxHit(ax,ay,aw,ah,bx,by,bw,bh){
+  return ax<bx+bw&&ax+aw>bx&&ay<by+bh&&ay+ah>by;
+}
+
+// ── Input ──
+document.onmousemove=function(e){
+  var ev=e||window.event;
+  state.rawMouseX=ev.pageX||ev.clientX||0;
+  state.rawMouseY=ev.pageY||ev.clientY||0;
+};
+
+arenaEl.onclick=function(){
+  if(!state.running){return;}
+  if(state.swingCD===0&&state.swinging===0){
+    state.swinging=SWING_DUR; state.swingCD=SWING_CD;
+  }
+};
+
+arenaEl.ondblclick=function(){if(state.running){lockJoystick();}};
+arenaEl.oncontextmenu=function(e){
+  if(state.running){lockJoystick();}
+  var ev=e||window.event; if(ev.preventDefault){ev.preventDefault();} return false;
+};
+
+var keys={up:false,down:false,left:false,right:false};
+document.onkeydown=function(e){
+  var ev=e||window.event; var c=ev.keyCode||ev.which;
+  if(c===38){keys.up=true;}   if(c===40){keys.down=true;}
+  if(c===37){keys.left=true;} if(c===39){keys.right=true;}
+  if(c===13&&state.running&&state.swingCD===0&&state.swinging===0){
+    state.swinging=SWING_DUR; state.swingCD=SWING_CD;
+  }
+  if(c===38||c===40||c===37||c===39){if(ev.preventDefault){ev.preventDefault();}return false;}
+};
+document.onkeyup=function(e){
+  var ev=e||window.event; var c=ev.keyCode||ev.which;
+  if(c===38){keys.up=false;}   if(c===40){keys.down=false;}
+  if(c===37){keys.left=false;} if(c===39){keys.right=false;}
+};
+
+// ── Game loop ──
+function gameTick(){
+  if(!state.running){return;}
+  state.tick++;
+  var i, e, moveX=0, moveY=0;
+
+  // 1. Joystick
+  var offX=state.rawMouseX-state.joyOriginX;
+  var offY=state.rawMouseY-state.joyOriginY;
+  var offDist=Math.sqrt(offX*offX+offY*offY);
+  var clampedX=offX, clampedY=offY;
+  if(offDist>JOY_R){clampedX=(offX/offDist)*JOY_R; clampedY=(offY/offDist)*JOY_R;}
+
+  if(offDist>4){
+    var norm=offDist>JOY_R?JOY_R:offDist;
+    var frac=(norm-4)/(JOY_R-4); if(frac>1){frac=1;}
+    moveX=(offX/offDist)*frac*MAX_SPD;
+    moveY=(offY/offDist)*frac*MAX_SPD;
+  }
+  if(keys.left){moveX=-MAX_SPD;moveY=0;} if(keys.right){moveX=MAX_SPD;moveY=0;}
+  if(keys.up){moveY=-MAX_SPD;moveX=0;}   if(keys.down){moveY=MAX_SPD;moveX=0;}
+
+  // 2. Facing
+  if(Math.abs(moveX)>0.4||Math.abs(moveY)>0.4){
+    var prevFacing=state.facing;
+    if(Math.abs(moveX)>=Math.abs(moveY)){state.facing=moveX>0?DIR_RIGHT:DIR_LEFT;}
+    else{state.facing=moveY>0?DIR_DOWN:DIR_UP;}
+    if(state.facing!==prevFacing){updatePip();}
+  }
+
+  // 3. Move player
+  var nx=clamp(state.playerX+moveX, 0, COLS*TILE-22);
+  if(!collidesWall(nx,state.playerY)){state.playerX=nx;}
+  var ny=clamp(state.playerY+moveY, 0, ROWS*TILE-22);
+  if(!collidesWall(state.playerX,ny)){state.playerY=ny;}
+
+  // 4. Re-anchor joystick to player
+  var nox=state.arenaOX+state.playerX+11, noy=state.arenaOY+state.playerY+11;
+  state.rawMouseX+=nox-state.joyOriginX; state.rawMouseY+=noy-state.joyOriginY;
+  state.joyOriginX=nox; state.joyOriginY=noy;
+  renderJoystick(clampedX,clampedY);
+
+  // 5. Sword swing
+  if(state.swingCD>0){state.swingCD--;}
+  if(state.swinging>0){
+    state.swinging--;
+    renderSword(true);
+    var hb=getSwingHitbox();
+    for(i=0;i<state.enemies.length;i++){
+      e=state.enemies[i];
+      if(e.dead){continue;}
+      if(boxHit(hb.x,hb.y,hb.w,hb.h,e.x,e.y,22,22)){
+        e.dead=true;
+        e.el.style.display="none";
+        spawnPuff(e.x, e.y-6);
+        state.score+=50*state.floor;
+        updateHUD();
+        checkRoomClear();
+      }
+    }
+  } else {
+    renderSword(false);
+  }
+
+  // 6. Enemy AI — smooth chase, always beeline toward player
+  var ESPD=0.8+state.floor*0.15; if(ESPD>2.4){ESPD=2.4;}
+  for(i=0;i<state.enemies.length;i++){
+    e=state.enemies[i];
+    if(e.dead){continue;}
+    if(e.hitFlash>0){e.hitFlash--;if(e.hitFlash===0){e.el.className="enemy";}}
+    var edx=(state.playerX+11)-(e.fx+11);
+    var edy=(state.playerY+11)-(e.fy+11);
+    var ed=Math.sqrt(edx*edx+edy*edy);
+    if(ed<1){continue;}
+    // Try full move
+    var enx=e.fx+(edx/ed)*ESPD;
+    var eny=e.fy+(edy/ed)*ESPD;
+    // Wall slide
+    if(collidesWall(Math.round(enx), Math.round(e.fy))){enx=e.fx;}
+    if(collidesWall(Math.round(e.fx), Math.round(eny))){eny=e.fy;}
+    // If fully stuck, try perpendicular nudge
+    if(enx===e.fx&&eny===e.fy){
+      if(!collidesWall(Math.round(e.fx+ESPD),Math.round(e.fy))){enx=e.fx+ESPD;}
+      else if(!collidesWall(Math.round(e.fx-ESPD),Math.round(e.fy))){enx=e.fx-ESPD;}
+      else if(!collidesWall(Math.round(e.fx),Math.round(e.fy+ESPD))){eny=e.fy+ESPD;}
+      else if(!collidesWall(Math.round(e.fx),Math.round(e.fy-ESPD))){eny=e.fy-ESPD;}
+    }
+    e.fx=clamp(enx,0,COLS*TILE-22); e.fy=clamp(eny,0,ROWS*TILE-22);
+    e.x=Math.round(e.fx); e.y=Math.round(e.fy);
+    e.el.style.left=e.x+"px"; e.el.style.top=e.y+"px";
+  }
+
+  // 7. Render player
+  playerEl.style.left=state.playerX+"px"; playerEl.style.top=state.playerY+"px";
+
+  // 8. Player damage
+  if(state.invincible>0){
+    state.invincible--;
+    playerEl.style.backgroundColor=(state.invincible%4<2)?"#ff4444":"#2255cc";
+  } else {
+    playerEl.style.backgroundColor="#2255cc";
+    for(i=0;i<state.enemies.length;i++){
+      e=state.enemies[i]; if(e.dead){continue;}
+      if(boxHit(state.playerX,state.playerY,22,22,e.x,e.y,22,22)){
+        state.hp--; state.invincible=55; updateHUD();
+        setStatus("!! Hit! HP: "+state.hp+"/3");
+        if(state.hp<=0){gameOver();return;}
+        break;
       }
     }
   }
 
-  function setStatus(msg) {
-    var el = document.getElementById("statusbar");
-    if (el) { el.innerHTML = msg; }
+  // 9. Exit
+  if(state.roomCleared&&onExitTile(state.playerX,state.playerY)){nextRoom();return;}
+}
+
+function checkRoomClear(){
+  var alive=0;
+  for(var i=0;i<state.enemies.length;i++){if(!state.enemies[i].dead){alive++;}}
+  if(alive===0&&!state.roomCleared){
+    state.roomCleared=true;
+    unlockExit();
+    setStatus("All enemies slain! The exit is open &mdash; reach the [ E ] !");
   }
+  updateKillBadge();
+}
 
-  // ── Button element map ──
-  var btnMap = {
-    "x":      { id: "btn-x",      cls: "active-x",  label: "Cross (X)" },
-    "ci":     { id: "btn-ci",     cls: "active-o",   label: "Circle (O)" },
-    "sq":     { id: "btn-sq",     cls: "active-sq",  label: "Square" },
-    "tri":    { id: "btn-tri",    cls: "active-tr",  label: "Triangle" },
-    "dup":    { id: "btn-dup",    cls: "active-d",   label: "D-Up" },
-    "ddown":  { id: "btn-ddown",  cls: "active-d",   label: "D-Down" },
-    "dleft":  { id: "btn-dleft",  cls: "active-d",   label: "D-Left" },
-    "dright": { id: "btn-dright", cls: "active-d",   label: "D-Right" },
-    "l1":     { id: "btn-l1",     cls: "active-l",   label: "L1" },
-    "l2":     { id: "btn-l2",     cls: "active-l",   label: "L2" },
-    "r1":     { id: "btn-r1",     cls: "active-r",   label: "R1" },
-    "r2":     { id: "btn-r2",     cls: "active-r",   label: "R2" },
-    "sel":    { id: "btn-sel",    cls: "active-sh",  label: "Select" },
-    "sta":    { id: "btn-sta",    cls: "active-st",  label: "Start" },
-    "ps":     { id: "btn-ps",     cls: "active-ps",  label: "PS Button" }
-  };
+// ── Room / game flow ──
+function loadRoom(){
+  refreshArenaOffset();
+  state.roomCleared=false; state.swinging=0; state.swingCD=0;
+  var info=buildMap();
+  renderMap(true);
+  spawnEnemies(info.rx1,info.ry1,info.rx2,info.ry2);
+  updateHUD(); updateKillBadge();
+  playerEl.style.left=state.playerX+"px"; playerEl.style.top=state.playerY+"px";
+  updatePip(); lockJoystick();
+  setStatus("Slay all enemies to open the exit! Click (or Enter) to swing sword.");
+}
 
-  function activateBtn(key) {
-    var info = btnMap[key];
-    if (!info) { return; }
-    var el = document.getElementById(info.id);
-    if (el) { el.className = el.className + " " + info.cls; }
+function nextRoom(){
+  state.score+=100*state.floor; state.roomsLeft--; state.room++;
+  if(state.roomsLeft<=0){
+    state.floor++; state.room=1; state.roomsLeft=3; state.score+=500;
+    if(state.hp<3){state.hp++;}
+    setStatus("Floor "+state.floor+" cleared! +500 score, +1 HP!");
+  } else {
+    setStatus("Room cleared! +"+(100*state.floor)+" score. Onward!");
   }
+  loadRoom();
+}
 
-  function deactivateBtn(key) {
-    var info = btnMap[key];
-    if (!info) { return; }
-    var el = document.getElementById(info.id);
-    if (!el) { return; }
-    // strip all active-* classes
-    var classes = el.className.split(" ");
-    var kept = [];
-    var i;
-    for (i = 0; i < classes.length; i++) {
-      if (classes[i].indexOf("active-") === -1) {
-        kept.push(classes[i]);
-      }
-    }
-    el.className = kept.join(" ");
-  }
+function startGame(){
+  state.running=true; state.hp=3; state.score=0; state.floor=1;
+  state.room=1; state.roomsLeft=3; state.invincible=0; state.tick=0;
+  state.facing=DIR_RIGHT;
+  overlayEl.style.display="none";
+  loadRoom();
+  if(state.loopTimer){clearInterval(state.loopTimer);}
+  state.loopTimer=setInterval(gameTick,FPS);
+}
 
-  // ── Click handler (fallback tap) ──
-  function clickBtn(key) {
-    var info = btnMap[key];
-    if (!info) { return; }
-    activateBtn(key);
-    setStatus("<span style='color:#88ccff;'>" + info.label + "</span> tapped");
-    pushLog(info.label + " tapped");
-    setTimeout(function() { deactivateBtn(key); }, 300);
-  }
+function gameOver(){
+  state.running=false; clearInterval(state.loopTimer);
+  overlayEl.style.display="block";
+  gid("overlay-title").innerHTML="YOU PERISHED";
+  gid("overlay-body").innerHTML=
+    "Floor reached: "+state.floor+"<br>"+
+    "Rooms cleared: "+(state.room-1)+"<br>"+
+    "Final score: <strong>"+state.score+"</strong><br><br>"+
+    "The dungeon claims another soul.";
+  gid("overlay-btn").innerHTML="TRY AGAIN";
+  gid("overlay-btn").onclick=startGame;
+}
 
-  // ── Key → button mapping ──
-  // PS3 NetFront fires standard key codes for controller navigation
-  function keyToBtn(code) {
-    if (code === 38) { return "dup"; }     // Up arrow
-    if (code === 40) { return "ddown"; }   // Down arrow
-    if (code === 37) { return "dleft"; }   // Left arrow
-    if (code === 39) { return "dright"; }  // Right arrow
-    if (code === 13) { return "x"; }       // Enter = Cross
-    if (code === 8)  { return "ci"; }      // Backspace = Circle
-    if (code === 27) { return "sta"; }     // Escape = Start
-    if (code === 32) { return "sq"; }      // Space = Square
-    if (code === 9)  { return "tri"; }     // Tab = Triangle
-    if (code === 112){ return "l1"; }      // F1 = L1
-    if (code === 113){ return "l2"; }      // F2 = L2
-    if (code === 114){ return "r1"; }      // F3 = R1
-    if (code === 115){ return "r2"; }      // F4 = R2
-    if (code === 116){ return "sel"; }     // F5 = Select
-    if (code === 117){ return "ps"; }      // F6 = PS Button
-    return null;
-  }
-
-  document.onkeydown = function(e) {
-    var evt = e || window.event;
-    var code = evt.keyCode || evt.which;
-    var btn = keyToBtn(code);
-    if (btn && !heldKeys[btn]) {
-      heldKeys[btn] = true;
-      activateBtn(btn);
-      setStatus("Pressing: <span style='color:#88ccff;'>" + btnMap[btn].label + "</span>");
-      pushLog(btnMap[btn].label + " held");
-    }
-    // prevent page scroll on arrow / space
-    if (code === 38 || code === 40 || code === 37 || code === 39 || code === 32) {
-      if (evt.preventDefault) { evt.preventDefault(); }
-      return false;
-    }
-  };
-
-  document.onkeyup = function(e) {
-    var evt = e || window.event;
-    var code = evt.keyCode || evt.which;
-    var btn = keyToBtn(code);
-    if (btn && heldKeys[btn]) {
-      heldKeys[btn] = false;
-      deactivateBtn(btn);
-      setStatus("Released: <span style='color:#555555;'>" + btnMap[btn].label + "</span>");
-      pushLog(btnMap[btn].label + " released");
-    }
-  };
-
-  // ── Mouse / cursor tracking (Left Stick proxy) ──
-  // On PS3, the left analog stick moves the on-screen cursor.
-  // We track pointer position relative to the stick-left zone,
-  // and also globally to show raw XY.
-
-  var stickLeftEl  = document.getElementById("stick-left");
-  var stickRightEl = document.getElementById("stick-right");
-  var dotLeftEl    = document.getElementById("dot-left");
-  var dotRightEl   = document.getElementById("dot-right");
-  var mxEl         = document.getElementById("mx");
-  var myEl         = document.getElementById("my");
-  var mzoneEl      = document.getElementById("mzone");
-
-  // Get element's page offset (ES3 compatible)
-  function getOffset(el) {
-    var x = 0, y = 0;
-    var node = el;
-    while (node && node.tagName) {
-      x += node.offsetLeft || 0;
-      y += node.offsetTop  || 0;
-      node = node.offsetParent;
-    }
-    return { x: x, y: y };
-  }
-
-  // Move the stick dot within a zone given page coords
-  function updateStickDot(dotEl, zoneEl, pageX, pageY) {
-    var off = getOffset(zoneEl);
-    var zw = zoneEl.offsetWidth  || 80;
-    var zh = zoneEl.offsetHeight || 80;
-    var rx = pageX - off.x;
-    var ry = pageY - off.y;
-    // clamp
-    if (rx < 0)  { rx = 0; }
-    if (rx > zw) { rx = zw; }
-    if (ry < 0)  { ry = 0; }
-    if (ry > zh) { ry = zh; }
-    // dot is 14px, so offset by 7
-    dotEl.style.left = (rx - 7) + "px";
-    dotEl.style.top  = (ry - 7) + "px";
-  }
-
-  // Describe cursor zone on screen
-  function describeZone(pageX, pageY) {
-    var w = document.body.offsetWidth  || 660;
-    var h = document.body.offsetHeight || 500;
-    var hz = pageX < w / 3 ? "Left" : (pageX > (w * 2 / 3) ? "Right" : "Center");
-    var vz = pageY < h / 3 ? "Top"  : (pageY > (h * 2 / 3) ? "Bottom" : "Mid");
-    return vz + "-" + hz;
-  }
-
-  // Last known mouse pos for R3/L3 press
-  var lastMouseX = 0;
-  var lastMouseY = 0;
-
-  document.onmousemove = function(e) {
-    var evt = e || window.event;
-    var px = evt.pageX || evt.clientX || 0;
-    var py = evt.pageY || evt.clientY || 0;
-    lastMouseX = px;
-    lastMouseY = py;
-
-    mxEl.innerHTML    = px;
-    myEl.innerHTML    = py;
-    mzoneEl.innerHTML = describeZone(px, py);
-
-    // Move left stick dot to follow cursor
-    updateStickDot(dotLeftEl, stickLeftEl, px, py);
-    stickLeftEl.className = "stick-zone stick-zone-active";
-  };
-
-  // L3 / R3 = clicking the analog sticks = mouse click on their zones
-  if (stickLeftEl) {
-    stickLeftEl.onclick = function() {
-      pushLog("L3 clicked (Left Stick press)");
-      setStatus("L3 &mdash; Left Stick pressed in");
-      stickLeftEl.style.borderColor = "#4488ff";
-      setTimeout(function() { stickLeftEl.style.borderColor = "#333333"; }, 400);
-    };
-  }
-  if (stickRightEl) {
-    stickRightEl.onclick = function() {
-      pushLog("R3 clicked (Right Stick press)");
-      setStatus("R3 &mdash; Right Stick pressed in");
-      stickRightEl.style.borderColor = "#4488ff";
-      setTimeout(function() { stickRightEl.style.borderColor = "#333333"; }, 400);
-    };
-  }
-
+refreshArenaOffset();
 </script>
-
 </body>
 </html>
